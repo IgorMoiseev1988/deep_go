@@ -17,37 +17,35 @@ type (
 	goos: linux
 	goarch: amd64
 	cpu: AMD Ryzen 5 5600X 6-Core Processor
-	BenchmarkConversion1-12         1000000000               0.0002167 ns/op
-	BenchmarkConversion2-12         1000000000               0.001555 ns/op
-	BenchmarkConversion3-12         1000000000               0.002680 ns/op
+	BenchmarkConversion_1-12        1000000000               0.0002078 ns/op
+	BenchmarkConversion_2-12        1000000000               0.001603 ns/op
+	BenchmarkConversion_3-12        1000000000               0.002320 ns/op
 	PASS
-	ok      command-line-arguments  0.034s
+	ok      command-line-arguments  0.033s
 */
 
 
 /* first version: fast, but need a separate function for each type */
 func ToLittleEndian_1(number uint32) uint32 {
-	b1 := number >> 24               // (number & 0xFF000000) >> 24 << 0
-	b2 := (number & 0x00FF0000) >> 8 // (number & 0x00FF0000) >> 16 << 8
-	b3 := (number & 0x0000FF00) << 8 // (number & 0x0000FF00) >> 8 << 16
-	b4 := number << 24               // (number & 0x000000FF) >> 0 << 24
-	return b1 | b2 | b3 | b4
+	return number >> 24 | (number & 0x00FF0000) >> 8 | (number & 0x0000FF00) << 8 | number << 24
 }
 
 
-/* second version: prepeared for genneric */
-func ToLittleEndian_2(number uint32) uint32 {
-	var result uint32
+/* second version: generic */
+func ToLittleEndian_2[T uint16 | uint32 | uint64](number T) T {
+	var result T
          
 	const (
 		mask = 0xFF
 		byte_bit_sz = 8
-                type_bit_sz = 4 * byte_bit_sz //replace 4 with real size in generic version
 	)
 	
-	r_shift := type_bit_sz
+	type_bit_sz := unsafe.Sizeof(number) * byte_bit_sz
 
-	for l_shift := 0; l_shift < type_bit_sz; l_shift += byte_bit_sz {
+	var r_shift uintptr = type_bit_sz
+	var l_shift uintptr
+
+	for l_shift = 0; l_shift < type_bit_sz; l_shift += byte_bit_sz {
 		r_shift -= byte_bit_sz
 		result |= ((number & (mask << r_shift)) >> r_shift) << l_shift
 	
@@ -56,11 +54,12 @@ func ToLittleEndian_2(number uint32) uint32 {
 } 
 
 /* Third version: simple, but slow */
-func ToLittleEndian_3(number uint32) uint32 {
+func ToLittleEndian_3[T uint16 | uint32 | uint64](number T) T {
 	p := unsafe.Pointer(&number)
-	type_size := 4 //replace 4 with real size in generic version
+	var type_size uintptr = unsafe.Sizeof(number)
+	var offset uintptr
 
-	for offset := 0; offset < type_size / 2; offset++ {
+	for offset = 0; offset < type_size / 2; offset++ {
 		lhs := (*uint8)(unsafe.Add(p, offset))
 		rhs := (*uint8)(unsafe.Add(p, 4 - offset - 1))
 		/* swap bytes */
