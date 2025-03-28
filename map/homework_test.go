@@ -3,7 +3,7 @@ package main
 import (
 	"reflect"
 	"testing"
-	"fmt"
+//	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -61,22 +61,56 @@ func (m *OrderedMap) Insert(key, value int) {
 	m.InsertImpl(m.head, key, value)
 }
 
+func (n *OrderedMapNode) Search(key int) (parent, node *OrderedMapNode) {
+	if n == nil     { return nil, nil }
+	if n.key == key { return nil, n	  }
+
+	if n.lnode != nil && n.lnode.key == key {
+		return n, n.lnode
+	}
+	if n.rnode != nil && n.rnode.key == key {
+		return n, n.rnode
+	}
+	if key < n.key {
+		return n.lnode.Search(key)
+	} else {
+		return n.rnode.Search(key)
+	}
+	
+}
+
 func (m *OrderedMap) Erase(key int) {
-	// need to implement
+	parent, node := m.head.Search(key)
+	_ = parent
+	if node == nil { return }
+
+	if node.rnode == nil {
+		if parent.lnode == node { 
+			parent.lnode = node.lnode 
+		} else { 
+			parent.rnode = node.lnode 
+		}
+		node.lnode = nil
+	} else {
+		parent_tmp, node_tmp := node, node.rnode
+		for node_tmp.lnode != nil {
+			parent_tmp = node_tmp
+			node_tmp = node_tmp.lnode
+		}
+		node.key = node_tmp.key
+		if parent_tmp.lnode == node_tmp {
+			parent_tmp.lnode = node_tmp.rnode
+		} else {
+			parent_tmp.rnode = node_tmp.rnode
+		}
+	}
+		
+	m.size--
 }
 
 func (n *OrderedMapNode) ContainsImpl(key int) bool {
-	if (n == nil) {
-		return false
-	}
-	if n.key == key {
-		return true
-	}
-	if key < n.key {
-		return n.lnode.ContainsImpl(key)
-	} else {
-		return n.rnode.ContainsImpl(key)
-	}
+	_, node := n.Search(key)
+	if node != nil { return true } else { return false }
 }
 
 func (m *OrderedMap) Contains(key int) bool {
@@ -88,9 +122,8 @@ func (m *OrderedMap) Size() int {
 }
 
 func (n *OrderedMapNode) ForEachImpl(action func(int, int)) {
-	if (n == nil) {
-		return
-	}
+	if n == nil { return }
+
 	n.lnode.ForEachImpl(action)
 	action(n.key, n.value)
 	n.rnode.ForEachImpl(action)
@@ -102,11 +135,9 @@ func (m *OrderedMap) ForEach(action func(int, int)) {
 
 func TestCircularQueue(t *testing.T) {
 	data := NewOrderedMap()
-	fmt.Printf("Map: head %v, size %d\n", data.head, data.size)
 	assert.Zero(t, data.Size())
 
 	data.Insert(10, 10)
-	fmt.Printf("%v\n", data)
 	data.Insert(10, 15)
 	data.Insert(5, 5)
 	data.Insert(15, 15)
@@ -126,7 +157,6 @@ func TestCircularQueue(t *testing.T) {
 	data.ForEach(func(key, _ int) {
 		keys = append(keys, key)
 	})
-	fmt.Printf("%v == %v\n", keys, expectedKeys)
 	assert.True(t, reflect.DeepEqual(expectedKeys, keys))
 
 	data.Erase(15)
