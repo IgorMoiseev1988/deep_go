@@ -16,10 +16,8 @@ type OrderedMap struct {
 }
 
 type OrderedMapNode struct {
-
 	key int
 	value int
-	parent* OrderedMapNode
 	lnode* OrderedMapNode
 	rnode* OrderedMapNode 
 }
@@ -28,93 +26,92 @@ func NewOrderedMap() OrderedMap {
 	return OrderedMap{}
 }
 
-func NewOrderedMapNode(key, value int) *OrderedMapNode {
-	return &OrderedMapNode { key: key, value: value }
-}
-
-func (m *OrderedMap) InsertImpl(n *OrderedMapNode, key int, value int) {
-	if m.head == nil {
-		m.head = NewOrderedMapNode(key, value)
-		m.size++
-		return
+func (n *OrderedMapNode) InsertImpl(key, value int) (node *OrderedMapNode, created bool) {
+	if (n == nil) { return &OrderedMapNode { key: key, value: value }, true }
+	if n.key == key {
+		n.value = value
+		return n, false
 	}
 	if key < n.key {
-		if n.lnode == nil {
-			n.lnode = NewOrderedMapNode(key, value)
-			m.size++
-		} else {
-			m.InsertImpl(n.lnode, key, value)
-		}
-	} else if key > n.key {
-		if n.rnode == nil {
-			n.rnode = NewOrderedMapNode(key, value)
-			m.size++
-		} else {
-			m.InsertImpl(n.rnode, key, value)
-		} 
+		n.lnode, created = n.lnode.InsertImpl(key, value)
 	} else {
-		n.value = value
+		n.rnode, created = n.rnode.InsertImpl(key, value)
 	}
+	return n, created
+
 }
 
 func (m *OrderedMap) Insert(key, value int) {
-	m.InsertImpl(m.head, key, value)
+	var created bool
+	m.head, created = m.head.InsertImpl(key, value)
+	if created { m.size++ }
 }
 
-func (n *OrderedMapNode) Search(key int) (parent, node *OrderedMapNode) {
-	if n == nil     { return nil, nil }
-	if n.key == key { return nil, n	  }
-
-	if n.lnode != nil && n.lnode.key == key {
-		return n, n.lnode
-	}
-	if n.rnode != nil && n.rnode.key == key {
-		return n, n.rnode
-	}
-	if key < n.key {
-		return n.lnode.Search(key)
-	} else {
-		return n.rnode.Search(key)
-	}
-	
+func (n *OrderedMapNode) Find(key int) *OrderedMapNode {
+	if n == nil    { return nil }
+	if key < n.key { return n.lnode.Find(key) }
+	if key > n.key { return n.rnode.Find(key) }
+	return n
 }
 
 func (m *OrderedMap) Erase(key int) {
-	parent, node := m.head.Search(key)
-	_ = parent
-	if node == nil { return }
-
-	if node.rnode == nil {
-		if parent.lnode == node { 
-			parent.lnode = node.lnode 
-		} else { 
-			parent.rnode = node.lnode 
-		}
-		node.lnode = nil
-	} else {
-		parent_tmp, node_tmp := node, node.rnode
-		for node_tmp.lnode != nil {
-			parent_tmp = node_tmp
-			node_tmp = node_tmp.lnode
-		}
-		node.key = node_tmp.key
-		if parent_tmp.lnode == node_tmp {
-			parent_tmp.lnode = node_tmp.rnode
-		} else {
-			parent_tmp.rnode = node_tmp.rnode
-		}
-	}
-		
-	m.size--
+    var deleted bool
+    m.head, deleted = deleteNode(m.head, key)
+    if deleted {
+        m.size--
+    }
 }
 
-func (n *OrderedMapNode) ContainsImpl(key int) bool {
-	_, node := n.Search(key)
-	if node != nil { return true } else { return false }
+// Вспомогательная функция для удаления узла
+// Возвращает новый корень поддерева и флаг, был ли удален узел
+func deleteNode(root *OrderedMapNode, key int) (*OrderedMapNode, bool) {
+    if root == nil {
+        return nil, false
+    }
+
+    var deleted bool
+
+    // Ищем узел для удаления
+    if key < root.key {
+        root.lnode, deleted = deleteNode(root.lnode, key)
+    } else if key > root.key {
+        root.rnode, deleted = deleteNode(root.rnode, key)
+    } else {
+        // Узел найден, выполняем удаление
+        deleted = true
+        
+        // Случай 1: Узел - лист или имеет только одного потомка
+        if root.lnode == nil {
+            return root.rnode, deleted
+        } else if root.rnode == nil {
+            return root.lnode, deleted
+        }
+
+        // Случай 2: Узел имеет двух потомков
+        // Находим минимальный узел в правом поддереве
+        minNode := findMin(root.rnode)
+        // Копируем данные
+        root.key = minNode.key
+        root.value = minNode.value
+        // Удаляем дубликат
+        root.rnode, _ = deleteNode(root.rnode, minNode.key)
+    }
+
+    return root, deleted
+}
+
+// findMin находит узел с минимальным ключом в поддереве
+func findMin(node *OrderedMapNode) *OrderedMapNode {
+    for node.lnode != nil {
+        node = node.lnode
+    }
+    return node
 }
 
 func (m *OrderedMap) Contains(key int) bool {
-	return m.head.ContainsImpl(key)	
+	node := m.head.Find(key)
+	if node != nil { return true }
+	return false
 }
 
 func (m *OrderedMap) Size() int {
@@ -176,4 +173,5 @@ func TestCircularQueue(t *testing.T) {
 	})
 
 	assert.True(t, reflect.DeepEqual(expectedKeys, keys))
+
 }
