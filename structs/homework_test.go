@@ -115,7 +115,7 @@ const (
 
 /*****************************************\
 * GamePerson has size equal 64 bytes:     *
-*      0 1 2 3 4 5 6 7 8 9 A B C D E F    *
+*       0 1 2 3 4 5 6 7 8 9 A B C D E F   *
 *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  *
 * 0x00 |   X   |   Y   |   Z   | Gold  |  *
 *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  *
@@ -160,6 +160,9 @@ func NewGamePerson(options ...Option) GamePerson {
 	return person
 }
 
+/*****************************************\
+* Getters                                 *
+\*****************************************/
 func (p *GamePerson) Name() string {
 	return unsafe.String(unsafe.SliceData(p.name[:]), p.healthAndLen >> 10)
 }
@@ -185,7 +188,7 @@ func (p *GamePerson) Mana() int {
 }
 
 func (p *GamePerson) Health() int {
-	return int(p.manaAndFlags & 0x03FF)
+	return int(p.healthAndLen & 0x03FF)
 }
 
 func (p *GamePerson) Respect() int {
@@ -205,15 +208,15 @@ func (p *GamePerson) Level() int {
 }
 
 func (p *GamePerson) HasHouse() bool {
-	return (p.manaAndFlags & 0x4000) == 0x4000
+	return (p.manaAndFlags & 0x4000) > 0
 }
 	
 func (p *GamePerson) HasGun() bool {
-	return (p.manaAndFlags & 0x2000) == 0x2000
+	return (p.manaAndFlags & 0x2000) > 0
 }
 
 func (p *GamePerson) HasFamily() bool {
-	return (p.manaAndFlags & 0x1000) == 0x1000
+	return (p.manaAndFlags & 0x1000) > 0
 }
 
 func (p *GamePerson) Type() int {
