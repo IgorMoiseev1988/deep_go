@@ -10,18 +10,37 @@ import (
 
 type Option func(*GamePerson)
 
+const (
+	NameLenBitMask     uint16 = 0xFC00
+	NameLenBitShift    uint16 = 0x000A
+	ManaBitMask        uint16 = 0x03FF
+	HealthBitMask      uint16 = 0x03FF
+	RespectBitMask     uint16 = 0xF000
+	RespectBitShift    uint16 = 0x000C
+	StrengthBitMask    uint16 = 0x0F00
+	StrengthBitShift   uint16 = 0x0008
+	ExperienceBitMask  uint16 = 0x00F0
+	ExperienceBitShift uint16 = 0x0004
+	LevelBitMask       uint16 = 0x000F
+	HouseBitMask       uint16 = 0x4000
+	GunBitMask         uint16 = 0x2000
+	FamilyBitMask      uint16 = 0x1000
+	PersonTypeBitMask  uint16 = 0x0C00
+	PersonTypeBitShift uint16 = 0x000A
+	PersonTypeBitSize  uint16 = 0x0003
+)
+
 /*****************************************\
 * Option setters                          *
 \*****************************************/
 func WithName(name string) func(*GamePerson) {
 	return func(person *GamePerson) {
-		var nameLen uint16
-		for i := 0; i < len(name); i++ {
-			nameLen++
+		nameLen := uint16(len(name))
+		for i := uint16(0); i < nameLen; i++ {
 			person.name[i] = name[i]
 		}
-		person.healthAndLen &= 0x03FF /* clear nameLen */
-		person.healthAndLen |= uint16(nameLen << 10)
+		person.healthAndLen &= (^NameLenBitMask) /* clear nameLen */
+		person.healthAndLen |= uint16(nameLen << NameLenBitShift)
 	}
 }
 
@@ -41,68 +60,68 @@ func WithGold(gold int) func(*GamePerson) {
 
 func WithMana(mana int) func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.manaAndFlags &= 0xFC00 /* clear old value */
-		person.manaAndFlags |= uint16(mana & 0x03FF)
+		person.manaAndFlags &= (^ManaBitMask) /* clear old value */
+		person.manaAndFlags |= uint16(mana) & ManaBitMask
 	}
 }
 
 func WithHealth(health int) func (*GamePerson) {
 	return func(person *GamePerson) {
-		person.healthAndLen &= 0xFC00 /* clear old value */
-		person.healthAndLen |= uint16(health & 0x03FF)
+		person.healthAndLen &= (^HealthBitMask) /* clear old value */
+		person.healthAndLen |= uint16(health) & HealthBitMask
 	}
 }
 
 func WithRespect(respect int) func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.rspStrExpLvl &= 0x0FFF /* clear old value */
-		person.rspStrExpLvl |= uint16(respect & 0x000F) << 12
+		person.rspStrExpLvl &= (^RespectBitMask) /* clear old value */
+		person.rspStrExpLvl |= uint16(uint8(respect)) << RespectBitShift
 	}
 }
 
 func WithStrength(strength int) func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.rspStrExpLvl &= 0xF0FF /* clear old value */
-		person.rspStrExpLvl |= uint16(strength & 0x000F) << 8
+		person.rspStrExpLvl &= (^StrengthBitMask) /* clear old value */
+		person.rspStrExpLvl |= uint16(uint8(strength)) << StrengthBitShift
 	}
 }
 
 func WithExperience(experience int) func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.rspStrExpLvl &= 0xFF0F /* clear old value */
-		person.rspStrExpLvl |= uint16(experience & 0x000F) << 4
+		person.rspStrExpLvl &= (^ExperienceBitMask) /* clear old value */
+		person.rspStrExpLvl |= uint16(uint8(experience)) << ExperienceBitShift
 	}
 }
 
 func WithLevel(level int) func (*GamePerson) {
 	return func(person *GamePerson) {
-		person.rspStrExpLvl &= 0xFFF0 /* clear old value */
-		person.rspStrExpLvl |= uint16(level & 0x000F)
+		person.rspStrExpLvl &= (^LevelBitMask) /* clear old value */
+		person.rspStrExpLvl |= uint16(uint8(level))
 	}
 }
 
 func WithHouse() func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.manaAndFlags |= 0x4000
+		person.manaAndFlags |= HouseBitMask
 	}
 }
 
 func WithGun() func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.manaAndFlags |= 0x2000
+		person.manaAndFlags |= GunBitMask
 	}
 }
 
 func WithFamily() func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.manaAndFlags |= 0x1000
+		person.manaAndFlags |= FamilyBitMask
 	}
 }
 
 func WithType(personType int) func(*GamePerson) {
 	return func(person *GamePerson) {
-		person.manaAndFlags &= 0xF3FF /* clear old value */
-		person.manaAndFlags |= uint16(personType & 0x0003) << 10
+		person.manaAndFlags &= (^PersonTypeBitMask) /* clear old value */
+		person.manaAndFlags |= (uint16(personType) & PersonTypeBitSize) << PersonTypeBitShift
 	}
 }
 
@@ -164,7 +183,7 @@ func NewGamePerson(options ...Option) GamePerson {
 * Getters                                 *
 \*****************************************/
 func (p *GamePerson) Name() string {
-	return unsafe.String(unsafe.SliceData(p.name[:]), p.healthAndLen >> 10)
+	return unsafe.String(unsafe.SliceData(p.name[:]), p.healthAndLen >> NameLenBitShift)
 }
 
 func (p *GamePerson) X() int {
@@ -184,43 +203,43 @@ func (p *GamePerson) Gold() int {
 }
 
 func (p *GamePerson) Mana() int {
-	return int(p.manaAndFlags & 0x03FF)
+	return int(p.manaAndFlags & ManaBitMask)
 }
 
 func (p *GamePerson) Health() int {
-	return int(p.healthAndLen & 0x03FF)
+	return int(p.healthAndLen & HealthBitMask)
 }
 
 func (p *GamePerson) Respect() int {
-	return int((p.rspStrExpLvl & 0xF000) >> 12)
+	return int((p.rspStrExpLvl & RespectBitMask) >> RespectBitShift)
 }
 
 func (p *GamePerson) Strength() int {
-	return int((p.rspStrExpLvl & 0x0F00) >> 8)
+	return int((p.rspStrExpLvl & StrengthBitMask) >> StrengthBitShift)
 }
 
 func (p *GamePerson) Experience() int {
-	return int((p.rspStrExpLvl & 0x00F0) >> 4)
+	return int((p.rspStrExpLvl & ExperienceBitMask) >> ExperienceBitShift)
 }
 
 func (p *GamePerson) Level() int {
-	return int(p.rspStrExpLvl & 0x000F)
+	return int(p.rspStrExpLvl & LevelBitMask)
 }
 
 func (p *GamePerson) HasHouse() bool {
-	return (p.manaAndFlags & 0x4000) > 0
+	return (p.manaAndFlags & HouseBitMask) > 0
 }
 	
 func (p *GamePerson) HasGun() bool {
-	return (p.manaAndFlags & 0x2000) > 0
+	return (p.manaAndFlags & GunBitMask) > 0
 }
 
 func (p *GamePerson) HasFamily() bool {
-	return (p.manaAndFlags & 0x1000) > 0
+	return (p.manaAndFlags & FamilyBitMask) > 0
 }
 
 func (p *GamePerson) Type() int {
-	return int((p.manaAndFlags & 0x0C00) >> 10)
+	return int((p.manaAndFlags & PersonTypeBitMask) >> PersonTypeBitShift)
 }
 
 func TestGamePerson(t *testing.T) {
@@ -229,13 +248,13 @@ func TestGamePerson(t *testing.T) {
 	const x, y, z = math.MinInt32, math.MaxInt32, 0
 	const name = "aaaaaaaaaaaaa_bbbbbbbbbbbbb_cccccccccccccc"
 	const personType = WarriorGamePersonType
-	const gold = math.MaxInt32
+	const gold = math.MaxInt32 - 1
 	const mana = 1000
-	const health = 1000
-	const respect = 10
-	const strength = 10
-	const experience = 10
-	const level = 10
+	const health = 999
+	const respect = 9
+	const strength = 8
+	const experience = 7
+	const level = 6
 
 	options := []Option{
 		WithName(name),
